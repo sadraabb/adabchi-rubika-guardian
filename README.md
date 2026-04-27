@@ -63,7 +63,7 @@
 
 ## 🏗️ معماری پروژه
 ```text
-Adabchi/
+adabchi-rubika-guardian/
 ├── main.py                      # فایل اصلی ربات
 ├── config/                      # بسته تنظیمات
 │   ├── __init__.py              # (می‌تواند خالی باشد)
