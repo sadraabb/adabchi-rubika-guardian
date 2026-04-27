@@ -26,7 +26,7 @@ chat_keypad = (
 
 # تعریف کی‌پد پنل ادمین
 # این کی‌پد فقط برای ادمین قابل دسترس است و شامل ابزارهای مدیریتی ربات می‌شود
-admin_panel = (
+admin_panel_keypad = (
     ChatKeypadBuilder()
     .row(
         ChatKeypadBuilder().button(id="bot_status",text="خاموش/روشن"),
@@ -91,7 +91,7 @@ async def admin_panel(bot:Robot,message:Message):
     # شرط بررسی برابر بودن آیدی عددی فرستاده پیام و ادمین
     if sender_id == admin_id:
         # اگر ادمین بود، پیام خوش‌آمدگویی و پنل ادمین را ارسال می‌کند
-        await message.answer("سلام ادمین خوش آمدی",chat_keypad=admin_panel)
+        await message.answer("سلام ادمین خوش آمدی",chat_keypad=admin_panel_keypad)
     else:
         # اگر کاربر ادمین نبود، پیام عدم دسترسی را ارسال می‌کند
         await message.reply("شما ادمین نیستید")
