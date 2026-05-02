@@ -2,6 +2,7 @@ from rubka import Robot, Message
 from rubka.button import ChatKeypadBuilder,InlineBuilder
 from answer_list import start_message , about_me
 from config import TOKEN,ADMIN_ID,ADMIN_USER_NAME,commands_list
+from fun_setting import hafez
 
 # مقداردهی اولیه ربات با استفاده از توکن
 bot = Robot(TOKEN)
@@ -16,13 +17,23 @@ chat_keypad = (
     .row(
         ChatKeypadBuilder().button(id="help_bot", text="راهنما"),
         ChatKeypadBuilder().button(id="about_me", text="درباره ما"),
-        ChatKeypadBuilder().button(id="add_group",text="➕ افزودن به گروه")
+        ChatKeypadBuilder().button(id="add_group",text="➕ افزودن به گروه"),
+        ChatKeypadBuilder().button(id="sargarmi_menu",text="بخش سرگرمی")
     )
     .row(
         ChatKeypadBuilder().button(id="support_menu",text="ارتباط با پشتیبانی👤")
     )
     .build()
 )
+
+sargarmi_menu_keypad = (
+    ChatKeypadBuilder()
+    .row(
+        ChatKeypadBuilder().button(id="fal_hafez_get",text="فال حافظ")
+    )
+    .build()
+)
+
 
 # تعریف کی‌پد پنل ادمین
 # این کی‌پد فقط برای ادمین قابل دسترس است و شامل ابزارهای مدیریتی ربات می‌شود
@@ -90,11 +101,16 @@ async def welcome_message(bot: Robot, message: Message):
 async def about_bot(bot:Robot,message:Message):
     await message.answer(about_me())
 
-@bot.callback_query("support_menu")
+@bot.callback_query(button_id="support_menu")
 async def contact_support(bot:Robot,message:Message):
-    await message.reply(
-        "کدام یک از روش های زیر را ترجیح میدهید برای ارتباط؟",
-        chat_keypad = support_button_keypad
+    try:
+        await message.reply(
+            "کدام یک از روش های زیر را ترجیح میدهید برای ارتباط؟",
+            chat_keypad = support_button_keypad
+            )
+    except:
+        await message.answer(
+            "لطفا بعدا امتحان کنید ، مشکلی پیش آمده است"
         )
 
 
@@ -104,12 +120,38 @@ async def support_pv(bot:Robot,message:Message):
 
 
 
-@bot.callback_query("submit_ticket")
+@bot.callback_query(button_id="submit_ticket")
 async def submit_ticket(bot:Robot,message:Message):
     await message.reply(
         "لطفا پیامی را که میخواهید به ادمین ارسال شود را بفرستید"
     )
     
+
+#---------------------- FUN MENU -------------------------#
+@bot.callback_query(button_id="sargarmi_menu")
+async def sargarmi_menu_buttons(bot:Robot,message:Message):
+    try:
+        await message.reply(
+            "لطفا یکی از گزینه های زیر را انتخاب کنید!",
+            chat_keypad = sargarmi_menu_keypad
+        )
+    except:
+        await message.answer(
+            "لطفا بعدا امتحان کنید ، مشکلی پیش آمده است"
+        )
+
+
+@bot.callback_query(button_id="fal_hafez_get")
+async def get_fal_button(bot:Robot,message:Message):
+    get_hafez = hafez.get_fal_bot()
+    await message.answer(
+        get_hafez
+    )
+
+
+
+
+
 
 
 #----------------ADMIN-PANEL----------------#
