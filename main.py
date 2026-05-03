@@ -1,51 +1,135 @@
-from rubka import Robot, Message
+# ==============================================
+# ================== LIBRARIES ==================
+# ==============================================
+from rubka import Robot, Message,filters
 from rubka.button import ChatKeypadBuilder,InlineBuilder
-from answer_list import start_message , about_me
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+from pathlib import Path
+from datetime import datetime
+# ==============================================
+# ================ LOCAL FILES =================
+# ==============================================
+from answer_list import start_message , about_me , help_bot , bot_say
 from config import TOKEN,ADMIN_ID,ADMIN_USER_NAME,commands_list
-from fun_setting import hafez
+from fun_setting import hafez,joke_create
+from web_services import get_currency
 
+
+
+# ========== تنظیمات لاگ ==========
+# ایجاد پوشه logs (اگه وجود نداشت)
+log_dir = Path(__file__).parent / "logs"
+log_dir.mkdir(exist_ok=True)
+
+# تنظیم لاگر اصلی
+log_file = log_dir / "bot_errors.log"
+
+logging.basicConfig(
+    level=logging.ERROR,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    encoding='utf-8'
+)
+
+# هندلر فایل (با چرخش)
+file_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=5*1024*1024,  # 5 مگابایت
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setLevel(logging.ERROR)
+
+# گرفتن لاگر اصلی
+logger = logging.getLogger()
+logger.addHandler(file_handler)
+
+# ==================== BOT INITIALIZATION ====================
 # مقداردهی اولیه ربات با استفاده از توکن
 bot = Robot(TOKEN)
-#آیدی عددی ادمین
+
+# ==================== ADMIN CONFIG ====================
+# آیدی عددی ادمین
 admin_id = ADMIN_ID
+# یوزر نیم ادمین
 admin_user_name = ADMIN_USER_NAME
+
+# ==================== DATA ====================
+get_hafez = hafez.get_fal_bot()
+joke_get = joke_create.get_joke_bot()
+
+
+# ==============================================
+# ==================== KEYPADS ====================
+# ==============================================
 
 # تعریف کی‌پد (صفحه کلید) اصلی ربات با دکمه‌های کاربردی
 # این کی‌پد برای تعاملات عمومی کاربران استفاده می‌شود
+
+# ---------- Main Menu Keypad ----------
 chat_keypad = (
     ChatKeypadBuilder()
     .row(
         ChatKeypadBuilder().button(id="help_bot", text="راهنما"),
         ChatKeypadBuilder().button(id="about_me", text="درباره ما"),
         ChatKeypadBuilder().button(id="add_group",text="➕ افزودن به گروه"),
-        ChatKeypadBuilder().button(id="sargarmi_menu",text="بخش سرگرمی")
+        ChatKeypadBuilder().button(id="sargarmi_menu",text="🎮 سرگرمی")
     )
     .row(
-        ChatKeypadBuilder().button(id="support_menu",text="ارتباط با پشتیبانی👤")
+        ChatKeypadBuilder().button(id="support_menu",text="📞 پشتیبانی")
     )
     .build()
 )
 
+# ---------- Entertainment Menu Keypad ----------
 sargarmi_menu_keypad = (
     ChatKeypadBuilder()
     .row(
-        ChatKeypadBuilder().button(id="fal_hafez_get",text="فال حافظ")
+        ChatKeypadBuilder().button(id="fal_hafez_get",text="🍃 فال حافظ"),
+        ChatKeypadBuilder().button(id="joke_get_button",text="😂 جوک")
     )
     .build()
 )
 
 
-# تعریف کی‌پد پنل ادمین
-# این کی‌پد فقط برای ادمین قابل دسترس است و شامل ابزارهای مدیریتی ربات می‌شود
+# ---------- Admin Panel Keypad ----------
+# کیبورد پنل ادمین - فقط برای مدیر ربات قابل دسترسی است
 admin_panel_keypad = (
     ChatKeypadBuilder()
     .row(
         ChatKeypadBuilder().button(id="bot_status",text="خاموش/روشن"),
         ChatKeypadBuilder().button(id="amar_bot",text="📊 آمار ربات"),
-        ChatKeypadBuilder().button(id="list_ticket",text="لیست تیکت")
+        ChatKeypadBuilder().button(id="list_ticket",text="لیست تیکت"),
+        ChatKeypadBuilder().button(id="help_admin_panel",text="راهنمای پنل مدیریت")
     )
     .build()
 )
+
+
+# ---------- Support Menu Keypad ----------
+# کیبورد بخش پشتیبانی - نمایش داده می‌شود پس از کلیک روی دکمه "ارتباط با پشتیبانی"
+
+
+
+# تعریف کی‌پد برای بخش پشتیبانی که شامل دو گزینه ارتباط است
+# این کی‌پد پس از فشردن دکمه "ارتباط با پشتیبانی" نمایش داده می‌شود
+support_button_keypad = (
+    ChatKeypadBuilder()
+    .row(
+        ChatKeypadBuilder().button(
+            id= 'support_id',
+            text="ارسال پیام به پشتیبانی👤"
+        ),
+        ChatKeypadBuilder().button(
+            id="submit_ticket",
+            text="ثبت تیکت"
+        )
+    )
+    .build()
+)
+
 
 # بخش کامنت شده: کی‌پد شیشه‌ای (Inline) برای پشتیبانی
 # این بخش ممکن است در آینده فعال شود یا به عنوان یک رویکرد جایگزین در نظر گرفته شده باشد
@@ -71,25 +155,10 @@ admin_panel_keypad = (
 #     .build()
 # )
 
-# تعریف کی‌پد برای بخش پشتیبانی که شامل دو گزینه ارتباط است
-# این کی‌پد پس از فشردن دکمه "ارتباط با پشتیبانی" نمایش داده می‌شود
-support_button_keypad = (
-    ChatKeypadBuilder()
-    .row(
-        ChatKeypadBuilder().button(
-            id= 'support_id',
-            text="ارسال پیام به پشتیبانی👤"
-        ),
-        ChatKeypadBuilder().button(
-            id="submit_ticket",
-            text="ثبت تیکت"
-        )
-    )
-    .build()
-)
+
 
 #-------------MAIN-MENU-BOT---------#
-@bot.on_message(commands=['start'])
+@bot.on_message_text(commands=['start'])
 async def welcome_message(bot: Robot, message: Message):
     print(f"پیام جدید: {message.text}")
     await message.reply(start_message(),chat_keypad=chat_keypad)
@@ -97,7 +166,7 @@ async def welcome_message(bot: Robot, message: Message):
 
 
 
-@bot.callback_query("about_me")
+@bot.callback_query(button_id="about_me")
 async def about_bot(bot:Robot,message:Message):
     await message.answer(about_me())
 
@@ -126,7 +195,12 @@ async def submit_ticket(bot:Robot,message:Message):
         "لطفا پیامی را که میخواهید به ادمین ارسال شود را بفرستید"
     )
     
-
+#----------------------Help command and Button -------------#
+@bot.callback_query(button_id="help_bot")
+async def help_bot_callback(bot:Robot,message:Message):
+    await message.answer(
+        help_bot()
+    )
 #---------------------- FUN MENU -------------------------#
 @bot.callback_query(button_id="sargarmi_menu")
 async def sargarmi_menu_buttons(bot:Robot,message:Message):
@@ -140,40 +214,150 @@ async def sargarmi_menu_buttons(bot:Robot,message:Message):
             "لطفا بعدا امتحان کنید ، مشکلی پیش آمده است"
         )
 
+#------------------fal hafez------------------#
+
 
 @bot.callback_query(button_id="fal_hafez_get")
 async def get_fal_button(bot:Robot,message:Message):
-    get_hafez = hafez.get_fal_bot()
-    await message.answer(
-        get_hafez
-    )
+    try:
+        await message.answer(
+            get_hafez
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در fal - کاربر: {message.sender_id} - خطا: {e}")    
 
 
+@bot.on_message_group(filters=filters.text_equals("فال"))
+async def fal_gap(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            get_hafez
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در fal_gap - کاربر: {message.sender_id} - خطا: {e}")    
 
 
+@bot.on_message_group(commands=['fal'])
+async def fal_gap_cmd(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            get_hafez
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در fal_gap - کاربر: {message.sender_id} - خطا: {e}")        
 
+#------------------Joke ------------------------#
 
+@bot.callback_query(button_id='joke_get_button')
+async def joke_get_callback(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            joke_get
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در joke - کاربر: {message.sender_id} - خطا: {e}")
+@bot.on_message_group(filters=filters.text_equals("جوک"))
+async def joke_gap(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            joke_get
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در joke_gap - کاربر: {message.sender_id} - خطا: {e}")
+@bot.on_message_group(commands=['joke'])
+async def cmd_joke_gap(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            joke_get
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در joke_gap - کاربر: {message.sender_id} - خطا: {e}")
+#------------------> currency price <-----------------#
+@bot.on_message_group(filters=filters.text_equals("نرخ ارز"))
+async def currency_gap(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            get_currency()
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در currency_gap  - کاربر: {message.sender_id} - خطا: {e}")
+        
+@bot.on_message_group(commands=['currency'])
+async def cmd_currency_gap(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            get_currency()
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در currency_gap  - کاربر: {message.sender_id} - خطا: {e}")
+
+#---------------------------- > Say Bot <----------------------#
+@bot.on_message_group(filters=lambda m: m.text in ["ربات", "بات", "هوش مصنوعی"])
+async def say_bot(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            bot_say()
+        )
+    except Exception as e:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
+        logger.error(f"خطا در say_bot - کاربر: {message.sender_id} - خطا: {e}")
 
 #----------------ADMIN-PANEL----------------#
 # تعریف رویداد برای دستور '/panel'
 # این تابع دسترسی به پنل ادمین را کنترل می‌کند
-@bot.on_message(commands=['panel'])
+@bot.on_message_text(commands=['panel'])
 async def admin_panel(bot:Robot,message:Message):
     # دریافت آیدی عددی کابری که دستور را ارسال کرده
     sender_id = message.sender_id
     # شرط بررسی برابر بودن آیدی عددی فرستاده پیام و ادمین
     if sender_id == admin_id:
-        # اگر ادمین بود، پیام خوش‌آمدگویی و پنل ادمین را ارسال می‌کند
-        await message.answer("سلام ادمین خوش آمدی",chat_keypad=admin_panel_keypad)
+        try :
+            # اگر ادمین بود، پیام خوش‌آمدگویی و پنل ادمین را ارسال می‌کند
+            await message.answer("سلام ادمین خوش آمدی",chat_keypad=admin_panel_keypad)
+        except:
+            await message.answer("ادمین عزیز مشکلی در بخش پنل ادمین به وجود آمده لطفا کد رو بررسی کنید!")
     else:
         # اگر کاربر ادمین نبود، پیام عدم دسترسی را ارسال می‌کند
         await message.reply("شما ادمین نیستید")
 
 
+
+
+
+
+
+
+
 #--------------------CREATOR-COMMAND--------#
-@bot.on_message(commands=['creator', 'dev', 'admin_info', 'developer'])
+@bot.on_message_text(commands=['creator', 'dev', 'admin_info', 'developer'])
 async def show_creator_info(bot: Robot, message: Message):
-    await message.reply("این ربات توسط [yourname] توسعه داده شده است.\nآیدی روبیکا: @your_user_name\nگیت‌هاب: https://github.com/your_github")
+    await message.reply("این ربات توسط صدرا عباس‌زاده توسعه داده شده است.\nآیدی روبیکا: @psychohkill\nگیت‌هاب: https://github.com/sadraabb")
 
 
 # اجرای ربات
