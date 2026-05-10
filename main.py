@@ -11,10 +11,25 @@ from datetime import datetime
 # ==============================================
 # ================ LOCAL FILES =================
 # ==============================================
+from database import (
+    add_user, add_group,
+      increment_messages,
+        get_stats,
+        get_stats_message,
+        add_special_group,
+        remove_special_group,
+        is_special_group,
+        add_ticket,
+        get_pending_tickets,
+        get_all_tickets,
+        answer_ticket,
+        get_ticket
+        
+        )
 from answer_list import start_message , about_me , help_bot , bot_say
 from config import TOKEN,ADMIN_ID,ADMIN_USER_NAME,commands_list
-from fun_setting import hafez,joke_create
-from web_services import get_currency
+from fun_setting import hafez,joke_create,get_bio
+from web_services import get_currency , ask_ai
 
 
 
@@ -60,6 +75,7 @@ admin_user_name = ADMIN_USER_NAME
 get_hafez = hafez.get_fal_bot()
 joke_get = joke_create.get_joke_bot()
 
+waiting_for_ticket = set()
 
 # ==============================================
 # ==================== KEYPADS ====================
@@ -160,6 +176,8 @@ support_button_keypad = (
 #-------------MAIN-MENU-BOT---------#
 @bot.on_message_text(commands=['start'])
 async def welcome_message(bot: Robot, message: Message):
+    user_id = str(message.sender_id)
+    add_user(user_id)  # ثبت کاربر
     print(f"پیام جدید: {message.text}")
     await message.reply(start_message(),chat_keypad=chat_keypad)
     await bot.set_commands(commands_list)
@@ -169,6 +187,8 @@ async def welcome_message(bot: Robot, message: Message):
 @bot.callback_query(button_id="about_me")
 async def about_bot(bot:Robot,message:Message):
     await message.answer(about_me())
+
+
 
 @bot.callback_query(button_id="support_menu")
 async def contact_support(bot:Robot,message:Message):
@@ -191,10 +211,14 @@ async def support_pv(bot:Robot,message:Message):
 
 @bot.callback_query(button_id="submit_ticket")
 async def submit_ticket(bot:Robot,message:Message):
+    user_id = message.sender_id
+    waiting_for_ticket.add(user_id)
     await message.reply(
-        "لطفا پیامی را که میخواهید به ادمین ارسال شود را بفرستید"
+    "لطفا پیامی را که میخواهید به ادمین ارسال شود را بفرستید\n\n"
+    "(پشتیبانی در اسرع وقت پاسخ خواهد داد)"
     )
-    
+
+
 #----------------------Help command and Button -------------#
 @bot.callback_query(button_id="help_bot")
 async def help_bot_callback(bot:Robot,message:Message):
@@ -232,11 +256,14 @@ async def get_fal_button(bot:Robot,message:Message):
 
 @bot.on_message_group(filters=filters.text_equals("فال"))
 async def fal_gap(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             get_hafez
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
@@ -245,11 +272,14 @@ async def fal_gap(bot:Robot,message:Message):
 
 @bot.on_message_group(commands=['fal'])
 async def fal_gap_cmd(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             get_hafez
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
@@ -270,22 +300,28 @@ async def joke_get_callback(bot:Robot,message:Message):
         logger.error(f"خطا در joke - کاربر: {message.sender_id} - خطا: {e}")
 @bot.on_message_group(filters=filters.text_equals("جوک"))
 async def joke_gap(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             joke_get
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
         logger.error(f"خطا در joke_gap - کاربر: {message.sender_id} - خطا: {e}")
 @bot.on_message_group(commands=['joke'])
 async def cmd_joke_gap(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             joke_get
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
@@ -293,11 +329,14 @@ async def cmd_joke_gap(bot:Robot,message:Message):
 #------------------> currency price <-----------------#
 @bot.on_message_group(filters=filters.text_equals("نرخ ارز"))
 async def currency_gap(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             get_currency()
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
@@ -305,28 +344,62 @@ async def currency_gap(bot:Robot,message:Message):
         
 @bot.on_message_group(commands=['currency'])
 async def cmd_currency_gap(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             get_currency()
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
         logger.error(f"خطا در currency_gap  - کاربر: {message.sender_id} - خطا: {e}")
+    
+#----------------------------> Bio Get <-----------------#
+@bot.on_message_group(filters= filters.text_equals('بیو'))
+async def random_bio(bot:Robot,message:Message):
+    try:
+        await message.answer(
+            get_bio()
+        )
+    except:
+        await message.answer(
+            "مشکلی پیش آمده"
+        )
 
 #---------------------------- > Say Bot <----------------------#
 @bot.on_message_group(filters=lambda m: m.text in ["ربات", "بات", "هوش مصنوعی"])
 async def say_bot(bot:Robot,message:Message):
+    group_id = str(message.chat_id)
     try:
+        add_group(group_id)
         await message.answer(
             bot_say()
         )
     except Exception as e:
+        add_group(group_id)
         await message.answer(
             "مشکلی پیش آمده"
         )
         logger.error(f"خطا در say_bot - کاربر: {message.sender_id} - خطا: {e}")
+
+
+@bot.on_message_group(commands=['ai', 'هوش'])
+async def ai_command(bot: Robot, message: Message):
+    question = message.text.replace("/ai", "").replace("/هوش", "").strip()
+    group_id = str(message.chat_id)
+    if is_special_group(group_id):
+        if not question:
+            await message.reply("❌ سوال خود را بنویس:\n/ai آسمان چرا آبی است؟")
+            return
+        
+        await message.reply("🤔 لحظه...")
+        answer = ask_ai(question)
+        await message.reply(answer)
+    else:
+        await message.answer("گروه شما ویژه نیست")
 
 #----------------ADMIN-PANEL----------------#
 # تعریف رویداد برای دستور '/panel'
@@ -350,14 +423,55 @@ async def admin_panel(bot:Robot,message:Message):
 
 
 
+@bot.callback_query(button_id="amar_bot")
+async def amar_bot(bot: Robot, message: Message):
+    user_id = message.sender_id
+    if user_id == admin_id:
+        await message.answer(get_stats_message())
+    else:
+        await message.answer("شما ادمین نیستید!")
 
 
+@bot.on_message_group(filters= lambda m : m.text in ['امار ربات','وضعیت ربات','نصب شو',"آمار ربات","ویژه کن"])
+async def admin_group_commands(bot:Robot,message:Message):
+    user_id = message.sender_id
+    if user_id == admin_id:
+        if message.text == "امار ربات":
+            await message.answer(get_stats_message())
+        elif message.text == "نصب شو":
+            pass
+        elif message.text =="ویژه کن":
+            group_id = str(message.chat_id)
+            group_name = "بدون نام"
+            if is_special_group(group_id):
+                await message.answer(f"❌ گروه قبلاً ویژه شده است!")
+                return
+            add_special_group(group_id, group_name, "vip", str(admin_id))
+            await message.answer(f"""
+✅ گروه ویژه شد!
 
+📋 اطلاعات گروه:
+🏷️ نام: {group_name}
+👑 نوع: VIP
+📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+🎁 *مزایای گروه ویژه:*
+• امکانات ویژه
+• پشتیبانی اولویت‌دار
+• دسترسی زودهنگام به امکانات جدید
+• تگ مخصوص VIP در گروه
+
+🚫 *دسترسی محدود:* گروه‌های عادی فقط امکانات پایه را دارند.
+
+🌟 از امکانات ویژه لذت ببرید!
+            """)
+    else:
+        await message.answer("شما ادمین ربات نیستید!")
 
 #--------------------CREATOR-COMMAND--------#
 @bot.on_message_text(commands=['creator', 'dev', 'admin_info', 'developer'])
 async def show_creator_info(bot: Robot, message: Message):
-    await message.reply("این ربات توسط صدرا عباس‌زاده توسعه داده شده است.\nآیدی روبیکا: @psychohkill\nگیت‌هاب: https://github.com/sadraabb")
+    await message.reply("این ربات توسط (نام شما) توسعه داده شده است.\nآیدی روبیکا: @YOUR-ID\nگیت‌هاب: https://github.com/your-github-user-name و \n میتوانید سورس کد من را در گیت هاب مشاهده کنید! \n https://github.com/sadraabb/adabchi-rubika-guardian")
 
 
 # اجرای ربات
